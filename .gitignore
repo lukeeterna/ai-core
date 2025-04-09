@@ -1,0 +1,11 @@
+# ~/Desktop/ai-core/.gitignore
+
+__pycache__/
+*.pyc
+logs/
+config/service_account.json
+.env
+node_modules/
+dist/
+.vscode/
+.DS_Store
