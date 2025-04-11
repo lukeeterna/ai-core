@@ -1,0 +1,133 @@
+#!/usr/bin/env python3
+import json
+import subprocess
+import logging
+from pathlib import Path
+import argparse
+
+def load_backup_prompt():
+    """
+    Carica il prompt per il backup dal file prompts/data/deepseek_drive_prompt.json.
+    """
+    prompt_path = Path("prompts/data/deepseek_drive_prompt.json")
+    if not prompt_path.exists():
+        logging.error("File prompt non trovato: %s", prompt_path)
+        return None
+    try:
+        with prompt_path.open("r", encoding="utf-8") as f:
+            prompt = json.load(f)
+        logging.info("Prompt di backup caricato correttamente.")
+        return prompt
+    except Exception as e:
+        logging.error("Errore nel caricamento del prompt: %s", e)
+        return None
+
+def invoke_deepseek(prompt, session_context, simulate_deepseek=False):
+    """
+    Combina il prompt di backup con il contesto della sessione e invoca DeepSeek tramite il comando di Ollama.
+    
+    Se simulate_deepseek è True, restituisce una risposta simulata.
+    Altrimenti, lancia il comando:
+        ollama deepseek code 6.7b
+    con un payload in formato JSON.
+    """
+    # Componi i messaggi in ingresso
+    messages = [
+        {"role": "system", "content": prompt["content"]},
+        {"role": "user", "content": f"Session context: {json.dumps(session_context)}"}
+    ]
+    input_payload = json.dumps(messages)
+    logging.info("Invocazione di DeepSeek con payload: %s", input_payload)
+    
+    if simulate_deepseek:
+        logging.info("Simulazione DeepSeek attivata. Restituisco una risposta fittizia.")
+        return {"action": "backup_code", "args": []}
+
+    try:
+        # Esegui il comando tramite subprocess; assicurati che "ollama" sia installato e accessibile nel PATH.
+        cmd = ["ollama", "deepseek", "code", "6.7b"]
+        result = subprocess.run(cmd, input=input_payload, text=True, capture_output=True, check=True)
+        logging.info("Output di DeepSeek: %s", result.stdout)
+        response = json.loads(result.stdout)
+        return response
+    except subprocess.CalledProcessError as e:
+        logging.error("Errore nell'esecuzione di DeepSeek (subprocess): %s", e)
+        return {}
+    except json.JSONDecodeError as e:
+        logging.error("Output non in formato JSON: %s", e)
+        return {}
+    except Exception as e:
+        logging.error("Errore generico in invoke_deepseek: %s", e)
+        return {}
+
+def execute_backup(simulate_backup=False):
+    """
+    Esegue il backup invocando lo script di backup su Google Drive.
+    
+    Se simulate_backup è True, non esegue il backup ma simula il completamento della procedura.
+    Altrimenti, lancia lo script 'final_backup_manager_drive_structure.py' tramite subprocess.
+    """
+    logging.info("Esecuzione backup invocando final_backup_manager_drive_structure.py")
+    if simulate_backup:
+        logging.info("Simulazione backup attivata. Completamento simulato del backup.")
+        return True
+
+    try:
+        cmd = ["python", "final_backup_manager_drive_structure.py"]
+        result = subprocess.run(cmd, text=True, capture_output=True, check=True)
+        logging.info("Output del backup: %s", result.stdout)
+        return True
+    except subprocess.CalledProcessError as e:
+        logging.error("Errore nell'esecuzione del backup: %s", e)
+        return False
+    except Exception as e:
+        logging.error("Errore generico in execute_backup: %s", e)
+        return False
+
+def main():
+    # Parsing degli argomenti da linea di comando per abilitare le simulazioni
+    parser = argparse.ArgumentParser(description="DeepSeek Middleware per gestione backup integrato")
+    parser.add_argument(
+        "--simulate-deepseek", action="store_true", 
+        help="Simula la risposta di DeepSeek (non esegue la chiamata reale)"
+    )
+    parser.add_argument(
+        "--simulate-backup", action="store_true", 
+        help="Simula l'esecuzione del backup (non esegue lo script reale)"
+    )
+    args = parser.parse_args()
+
+    # Configura il logging
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s: %(message)s")
+    logging.info("Avvio DeepSeek Middleware per gestione backup.")
+
+    # Carica il prompt di backup dal file prompts/data/deepseek_drive_prompt.json
+    prompt = load_backup_prompt()
+    if prompt is None:
+        logging.error("Impossibile caricare il prompt. Interruzione del processo.")
+        return
+
+    # Definisci il contesto della sessione attuale (personalizza in base alle tue necessità)
+    session_context = {
+        "session_length": 90,         # ad es. durata in minuti
+        "recent_code_changes": True,    # flag per aggiornamenti di codice recenti
+        "user_activity": "inattivo",    # "attivo" o "inattivo"
+        "needs_backup": True            # flag per forzare il backup (per test)
+    }
+
+    # Invoca DeepSeek per valutare se eseguire il backup
+    response = invoke_deepseek(prompt, session_context, simulate_deepseek=args.simulate_deepseek)
+    logging.info("Risposta ottenuta da DeepSeek: %s", response)
+
+    # Se la risposta contiene {"action": "backup_code", ...} esegue il backup
+    if response.get("action") == "backup_code":
+        logging.info("DeepSeek ha richiesto l'esecuzione del backup.")
+        if execute_backup(simulate_backup=args.simulate_backup):
+            logging.info("Backup eseguito con successo.")
+        else:
+            logging.error("Backup fallito.")
+    else:
+        logging.info("Nessuna azione di backup richiesta dalla sessione corrente.")
+
+if __name__ == "__main__":
+    main()

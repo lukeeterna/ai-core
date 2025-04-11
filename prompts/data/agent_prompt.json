@@ -1,0 +1,4 @@
+{
+  "action": "backup",
+  "args": ["chatgpt", "/Users/gianlucadistasi/Desktop/ai-core/logs/test.txt"]
+}

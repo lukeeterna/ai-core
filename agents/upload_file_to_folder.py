@@ -2,54 +2,63 @@
 
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
-from googleapiclient.http import MediaFileUpload
 import os
 import sys
 
-# === CONFIG ===
-SERVICE_ACCOUNT_FILE = os.path.expanduser('~/Desktop/ai-core/config/service_account.json')
+SERVICE_ACCOUNT_FILE = 'service_account.json'
 SCOPES = ['https://www.googleapis.com/auth/drive']
-PARENT_FOLDER_ID = '16ilWwbaFk6Zj0ssInwPImYCzz_9b0BXC'  # ID root cartella Drive
+ROOT_FOLDER_ID = '16ilWwbaFk6Zj0ssInwPImYCzz_9b0BXC'  # GPT_BACKUP_ROOT
 
-# === INPUT ===
-if len(sys.argv) != 3:
-    print("❌ Uso: python3 upload_file_to_folder.py <nome_cartella> <file_locale>")
+if len(sys.argv) < 3:
+    print("❌ Uso: python3 upload_file_to_folder.py <subfolder> <file_path> [drive]")
     sys.exit(1)
 
-target_folder = sys.argv[1]
-local_file = sys.argv[2]
-filename = os.path.basename(local_file)
+SUBFOLDER_NAME = sys.argv[1]
+FILE_PATH = sys.argv[2]
 
-# === AUTENTICAZIONE ===
-creds = service_account.Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
+creds = service_account.Credentials.from_service_account_file(
+    SERVICE_ACCOUNT_FILE, scopes=SCOPES
+)
 service = build('drive', 'v3', credentials=creds)
 
-# === CREA O OTTIENI CARTELLA ===
-def get_or_create_folder(name, parent_id):
-    query = f"mimeType='application/vnd.google-apps.folder' and name='{name}' and '{parent_id}' in parents and trashed=false"
-    results = service.files().list(q=query, spaces='drive', fields='files(id)').execute()
+def create_or_get_folder(name, parent_id):
+    query = f"name='{name}' and mimeType='application/vnd.google-apps.folder' and '{parent_id}' in parents and trashed=false"
+    results = service.files().list(q=query, fields="files(id)").execute()
     folders = results.get('files', [])
     if folders:
         return folders[0]['id']
-    metadata = {'name': name, 'mimeType': 'application/vnd.google-apps.folder', 'parents': [parent_id]}
+
+    metadata = {
+        'name': name,
+        'mimeType': 'application/vnd.google-apps.folder',
+        'parents': [parent_id]
+    }
     folder = service.files().create(body=metadata, fields='id').execute()
-    return folder['id']
+    return folder.get('id')
 
-# === ELIMINA FILE SE GIA' PRESENTE ===
-def delete_if_exists(name, folder_id):
-    query = f"name='{name}' and '{folder_id}' in parents and trashed=false"
-    results = service.files().list(q=query, spaces='drive', fields='files(id)').execute()
-    for f in results.get('files', []):
-        service.files().delete(fileId=f['id']).execute()
+def upload_file_to_folder(file_path, folder_id):
+    filename = os.path.basename(file_path)
 
-# === UPLOAD FILE ===
-def upload_file(local_path, folder_id):
-    delete_if_exists(filename, folder_id)
-    media = MediaFileUpload(local_path, resumable=True)
-    metadata = {'name': filename, 'parents': [folder_id]}
-    uploaded = service.files().create(body=metadata, media_body=media, fields='id').execute()
-    print(f"✅ File '{filename}' caricato. ID: {uploaded['id']}")
+    # Cerca se esiste già
+    query = f"name='{filename}' and '{folder_id}' in parents and trashed=false"
+    existing = service.files().list(q=query, fields="files(id)").execute().get('files', [])
 
-# === EXECUTION ===
-target_id = get_or_create_folder(target_folder, PARENT_FOLDER_ID)
-upload_file(local_file, target_id)
+    # Elimina vecchio file se presente
+    for file in existing:
+        service.files().delete(fileId=file['id']).execute()
+
+    file_metadata = {
+        'name': filename,
+        'parents': [folder_id]
+    }
+    media = MediaFileUpload(file_path, resumable=True)
+    uploaded = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
+    print(f"✅ File '{filename}' caricato. ID: {uploaded.get('id')}")
+
+
+if __name__ == "__main__":
+    from googleapiclient.http import MediaFileUpload
+
+    print(f"🚀 Backup file: {FILE_PATH} → sottocartella: {SUBFOLDER_NAME}")
+    subfolder_id = create_or_get_folder(SUBFOLDER_NAME, ROOT_FOLDER_ID)
+    upload_file_to_folder(FILE_PATH, subfolder_id)

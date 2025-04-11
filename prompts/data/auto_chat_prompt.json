@@ -1,0 +1,7 @@
+{
+    "agent": "LUKE_CTO_SAAS",
+    "context": "Sessione attiva in corso. Valuta se la velocità di risposta o complessità richiede salvataggio. Se sì, crea task di backup automatico locale e su Google Drive.",
+    "objective": "Monitorare lentezza o rischio timeout per salvare la sessione.",
+    "instructions_format": "{\"action\": \"backup\", \"args\": [\"auto_chat\", \"/Users/gianlucadistasi/Desktop/ai-core/logs/chat_session.zip\", \"drive\"]}"
+  }
+  

@@ -1,0 +1,17 @@
+# Configurazione per le credenziali e il salvataggio dei token
+client_config_backend: file
+client_config_file: credentials.json
+
+save_credentials: True
+save_credentials_backend: file
+save_credentials_file: token.json
+
+get_refresh_token: True
+oauth_scope:
+  - https://www.googleapis.com/auth/drive
+
+# Parametri operativi per il monitoraggio e il backup (FORZATI PER TEST)
+token_limit: 1500          # Triggera il backup se il numero simulato di token supera 500
+response_threshold: 0.5    # Triggera il backup se il tempo di risposta supera 0.5 secondi
+monitor_interval: 2        # Controlla ogni 2 secondi
+
