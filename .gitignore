@@ -1,11 +1,40 @@
-# ~/Desktop/ai-core/.gitignore
+# 🔒 File con credenziali
+.env
+.env.*
+*.env
+*.json
+*.pem
+*.key
+service_account.json
+user_contexts/
+middleware/credentials.json
+middleware/token.json
 
+# ⚙️ Ambienti virtuali
+.venv/
+venv/
+middleware/.venv/
+orchestrator/.venv/
+
+# 🔁 Log e file temporanei
+logs/
+*.log
+context_backups/
 __pycache__/
 *.pyc
-logs/
-config/service_account.json
-.env
+
+# 🧼 File sistema/macOS
+.DS_Store
+
+# 📦 Build frontend/backend
 node_modules/
 dist/
-.vscode/
-.DS_Store
+build/
+.cache/
+
+# 🧪 Local DB o dati di test
+*.sqlite
+*.db
+*.zip
+*.bak
+tree.txt
